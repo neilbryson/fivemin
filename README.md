@@ -1,5 +1,5 @@
 # FiveMin
-Removes columns on CSV files that are not within the minute interval.
+Removes rows on CSV files that are not within the minute interval.
 
 # System Requirements
  * PHP >= 7.0.15
