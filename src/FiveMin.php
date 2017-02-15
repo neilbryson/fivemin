@@ -9,16 +9,6 @@ class FiveMin
 {
 
     /**
-     * @var int
-     */
-    protected $intervalStart = 0;
-
-    /**
-     * @var int
-     */
-    protected $intervalEnd = 55;
-
-    /**
      * Length of the interval in minutes.
      *
      * @var int
@@ -26,21 +16,65 @@ class FiveMin
     protected $intervalLength = 5;
 
     /**
+     * Set the new interval length.
+     *
+     * @param int $intervalLength
+     * @return FiveMin
+     */
+    public function intervalLength(int $intervalLength) : FiveMin
+    {
+        $this->intervalLength = $intervalLength;
+        return $this;
+    }
+
+    /**
      * Reads a CSV file and removes the columns that are not in the interval.
      *
-     * @param $fileLocation
-     * @param $dateTimeHeaderName
+     * @param string $fileLocation
+     * @param string $dateTimeHeaderName
+     * @param string|null $saveFileName
+     * @param string|null $saveDirectory
      * @throws \ErrorException
      */
-    public function go($fileLocation, $dateTimeHeaderName)
-    {
+    public function go(
+        string $fileLocation,
+        string $dateTimeHeaderName,
+        string $saveFileName = null,
+        string $saveDirectory = null
+    ) : void {
         if(! file_exists($fileLocation)) {
             throw new \ErrorException("File '$fileLocation' does not exist.");
         }
+
+        echo "Processing file \"$fileLocation\". Looking for the header \"$dateTimeHeaderName\". Please wait.\n";
         $csvContent = $this->removeNotInInterval($fileLocation, $dateTimeHeaderName);
-        touch('hoy.csv');
-        $new = CsvWriter::createFromPath('hoy.csv');
+        $csvFileName = basename($fileLocation) . '.csv';
+        if(! $saveFileName) {
+            $saveFileName = $csvFileName;
+        }
+        $savePath = $this->filePath($saveFileName, $saveDirectory);
+        touch($savePath);
+        echo "Saving to file \"$savePath\".\n";
+        $new = CsvWriter::createFromPath($savePath);
         $new->insertAll($csvContent);
+        echo "Done.";
+    }
+
+    /**
+     * Create the full file path.
+     *
+     * @param string $fileName
+     * @param string|null $directory
+     * @return string
+     */
+    protected function filePath(string $fileName, string $directory = null) : string
+    {
+        if(! $directory) {
+            // Save on the project root directory
+            $directory = realpath(__DIR__ . '/..');
+        }
+
+        return $directory . DIRECTORY_SEPARATOR . $fileName;
     }
 
     /**
@@ -50,18 +84,20 @@ class FiveMin
      * @param string $headerName The name of the datetime header
      * @return array|bool
      */
-    protected function removeNotInInterval($fileLocation, $headerName)
+    protected function removeNotInInterval(string $fileLocation, string $headerName) : array
     {
         $csvContent = $this->readCsvContent($fileLocation);
         if(! $csvContent) {
             return false;
         }
+
         $removed = [];
         foreach($csvContent as $element => $content) {
             if($this->isIntervalOf($content[$headerName])) {
                 $removed[] = $content;
             }
         }
+
         return $removed;
     }
 
@@ -71,7 +107,7 @@ class FiveMin
      * @param string $dateTime
      * @return bool
      */
-    protected function isIntervalOf($dateTime)
+    protected function isIntervalOf(string $dateTime) : bool
     {
         return date('i', strtotime($dateTime)) % $this->intervalLength === 0;
     }
@@ -82,10 +118,11 @@ class FiveMin
      * @param string $fileLocation
      * @return bool|\Iterator
      */
-    protected function readCsvContent($fileLocation)
+    protected function readCsvContent(string $fileLocation) : \Iterator
     {
         $csv = CsvReader::createFromPath($fileLocation);
         $results = $csv->fetchAssoc();
+
         if(empty($results) || ! $results) {
             return false;
         }
